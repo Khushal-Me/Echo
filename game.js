@@ -14,7 +14,7 @@ let threatDetectionRadius = 3;
 let gameLevel;
 
 // Add this at the beginning of your script
-let debugMode = true;
+let debugMode = false;
 
 // Add these debug features
 function setupDebugMode() {
@@ -352,37 +352,35 @@ function createPlayer() {
         height: 1.6
     };
     
+    // Move player to a safe starting position
+    player.position.set(0, 1.6, 0);
+    camera.position.copy(player.position);
+    
     // Update audio listener position based on player
-    // Check which API version we need to use
-    if (listener.positionX !== undefined) {
-        // Modern API
-        listener.positionX.value = player.position.x;
-        listener.positionY.value = player.position.y;
-        listener.positionZ.value = player.position.z;
-        
-        // Set listener orientation
-        const forward = new THREE.Vector3(0, 0, -1);
-        forward.applyQuaternion(camera.quaternion);
-        
-        listener.forwardX.value = forward.x;
-        listener.forwardY.value = forward.y;
-        listener.forwardZ.value = forward.z;
-        listener.upX.value = 0;
-        listener.upY.value = 1;
-        listener.upZ.value = 0;
-    } else {
-        // Legacy API
-        const listenerPosition = new Float32Array([player.position.x, player.position.y, player.position.z]);
-        const forward = new THREE.Vector3(0, 0, -1);
-        forward.applyQuaternion(camera.quaternion);
-        const up = new THREE.Vector3(0, 1, 0);
-        
-        // Forward and up vectors for orientation
-        const listenerOrientation = new Float32Array([forward.x, forward.y, forward.z, up.x, up.y, up.z]);
-        
-        // Set position and orientation using the old API
-        listener.setPosition(player.position.x, player.position.y, player.position.z);
-        listener.setOrientation(forward.x, forward.y, forward.z, up.x, up.y, up.z);
+    if (listener) {
+        if (listener.positionX !== undefined) {
+            // Modern API
+            listener.positionX.value = player.position.x;
+            listener.positionY.value = player.position.y;
+            listener.positionZ.value = player.position.z;
+            
+            // Set listener orientation
+            const forward = new THREE.Vector3(0, 0, -1);
+            forward.applyQuaternion(camera.quaternion);
+            
+            listener.forwardX.value = forward.x;
+            listener.forwardY.value = forward.y;
+            listener.forwardZ.value = forward.z;
+            listener.upX.value = 0;
+            listener.upY.value = 1;
+            listener.upZ.value = 0;
+        } else {
+            // Legacy API
+            listener.setPosition(player.position.x, player.position.y, player.position.z);
+            const forward = new THREE.Vector3(0, 0, -1);
+            forward.applyQuaternion(camera.quaternion);
+            listener.setOrientation(forward.x, forward.y, forward.z, 0, 1, 0);
+        }
     }
     
     console.log("Player created at position:", player.position);
@@ -532,7 +530,7 @@ function updateThreat(deltaTime) {
 // Check for collision with walls
 function checkCollision(position) {
     raycaster.near = 0;
-    raycaster.far = 1;
+    raycaster.far = 0.5; // Reduced from 1 to more reasonable collision distance
     
     // Check in 4 directions (forward, backward, left, right)
     const directions = [
@@ -543,14 +541,22 @@ function checkCollision(position) {
     ];
     
     for (const direction of directions) {
-        raycaster.set(position, direction);
-        const intersects = raycaster.intersectObjects(scene.children, true);
+        // Create a normalized copy of the direction
+        const normalizedDir = direction.clone().normalize();
+        
+        // Set the raycaster position and direction
+        raycaster.set(position, normalizedDir);
+        
+        // Get intersections with collidable objects only
+        const intersects = raycaster.intersectObjects(
+            scene.children.filter(obj => obj.userData && obj.userData.isCollidable), 
+            true
+        );
         
         // Check if there's a collision
-        for (const intersect of intersects) {
-            if (intersect.object.userData.isCollidable && intersect.distance < 0.5) {
-                return true;
-            }
+        if (intersects.length > 0 && intersects[0].distance < 0.3) {
+            console.log("Collision detected in direction", direction);
+            return true;
         }
     }
     
@@ -565,26 +571,29 @@ function updatePlayer(deltaTime) {
     // Get movement direction from keys
     if (keyStates['KeyW'] || keyStates['ArrowUp']) {
         playerVelocity.z = -1;
+        console.log("W key pressed");
     }
     if (keyStates['KeyS'] || keyStates['ArrowDown']) {
         playerVelocity.z = 1;
+        console.log("S key pressed");
     }
     if (keyStates['KeyA'] || keyStates['ArrowLeft']) {
         playerVelocity.x = -1;
+        console.log("A key pressed");
     }
     if (keyStates['KeyD'] || keyStates['ArrowRight']) {
         playerVelocity.x = 1;
+        console.log("D key pressed");
     }
+    
+    // If no movement, return early
+    if (playerVelocity.lengthSq() === 0) return;
     
     // Debug movement
-    if (playerVelocity.x !== 0 || playerVelocity.z !== 0) {
-        console.log("Moving with velocity:", playerVelocity);
-    }
+    console.log("Moving with velocity:", playerVelocity);
     
     // Normalize velocity for consistent speed in all directions
-    if (playerVelocity.lengthSq() > 0) {
-        playerVelocity.normalize();
-    }
+    playerVelocity.normalize();
     
     // Apply playerSpeed
     playerVelocity.multiplyScalar(playerSpeed * deltaTime * 60);
@@ -609,8 +618,10 @@ function updatePlayer(deltaTime) {
         player.position.z + moveZ
     );
     
-    // Check for collision
-    if (!checkCollision(newPosition)) {
+    // Check for collision - with added debugging
+    if (checkCollision(newPosition)) {
+        console.log("Collision detected, cannot move");
+    } else {
         player.position.copy(newPosition);
         
         // Update camera position
@@ -618,7 +629,32 @@ function updatePlayer(deltaTime) {
         
         // Update audio listener position using the appropriate method
         if (listener) {
-            listener.setPosition(player.position.x, player.position.y, player.position.z);
+            if (listener.positionX !== undefined) {
+                // Modern API
+                listener.positionX.value = player.position.x;
+                listener.positionY.value = player.position.y;
+                listener.positionZ.value = player.position.z;
+            } else {
+                // Legacy API
+                listener.setPosition(player.position.x, player.position.y, player.position.z);
+            }
+            
+            // Update orientation too
+            const forward = new THREE.Vector3();
+            camera.getWorldDirection(forward);
+            
+            if (listener.forwardX !== undefined) {
+                // Modern API
+                listener.forwardX.value = forward.x;
+                listener.forwardY.value = forward.y;
+                listener.forwardZ.value = forward.z;
+                listener.upX.value = 0;
+                listener.upY.value = 1;
+                listener.upZ.value = 0;
+            } else {
+                // Legacy API
+                listener.setOrientation(forward.x, forward.y, forward.z, 0, 1, 0);
+            }
         }
     }
 }
@@ -717,7 +753,7 @@ function createTestCube() {
     // Add a visible floor that's easier to see
     const floor = new THREE.Mesh(
         new THREE.PlaneGeometry(20, 20),
-        new THREE.MeshBasicMaterial({ color: 0x222222, side: THREE.DoubleSide })
+        new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide })
     );
     floor.rotation.x = -Math.PI / 2;
     floor.position.y = -0.01; // Slightly below player
