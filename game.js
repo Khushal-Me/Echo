@@ -61,14 +61,23 @@ function setupEventListeners() {
     document.getElementById('start-button').addEventListener('click', startGame);
     document.getElementById('restart-button').addEventListener('click', restartGame);
     
-    document.addEventListener('keydown', (e) => {
+    // Make sure key events are being properly captured
+    window.addEventListener('keydown', (e) => {
         keyStates[e.code] = true;
+        console.log("Key pressed:", e.code);
     });
     
-    document.addEventListener('keyup', (e) => {
+    window.addEventListener('keyup', (e) => {
         keyStates[e.code] = false;
+        console.log("Key released:", e.code);
     });
 }
+
+// Add this direct test
+document.addEventListener('keydown', function(e) {
+    console.log("Direct document keydown:", e.code);
+});
+
 
 // Handle different game screens
 function setupScreens() {
