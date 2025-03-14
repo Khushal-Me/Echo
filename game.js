@@ -58,14 +58,27 @@ function startGame() {
 
 // Initialize Web Audio API
 function initAudio() {
-    // Create audio context
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    
-    // Create listener for 3D audio
-    listener = audioContext.listener;
-    
-    // Load all audio files
-    loadAudioFiles();
+    try {
+        // Create audio context
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Resume audio context (required by some browsers)
+        if (audioContext.state === 'suspended') {
+            console.log("Resuming audio context...");
+            audioContext.resume();
+        }
+        
+        // Create listener for 3D audio
+        listener = audioContext.listener;
+        
+        console.log("Audio context initialized:", audioContext);
+        console.log("Audio listener initialized:", listener);
+        
+        // Load all audio files
+        loadAudioFiles();
+    } catch (error) {
+        console.error("Audio initialization error:", error);
+    }
 }
 
 // Load all necessary audio files
