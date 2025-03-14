@@ -507,7 +507,7 @@ function checkCollision(position) {
     return false;
 }
 
-// Update player movement
+// Update player movement with fixed audio positioning
 function updatePlayer(deltaTime) {
     // Reset velocity
     playerVelocity.set(0, 0, 0);
@@ -524,6 +524,11 @@ function updatePlayer(deltaTime) {
     }
     if (keyStates['KeyD'] || keyStates['ArrowRight']) {
         playerVelocity.x = 1;
+    }
+    
+    // Debug movement
+    if (playerVelocity.x !== 0 || playerVelocity.z !== 0) {
+        console.log("Moving with velocity:", playerVelocity);
     }
     
     // Normalize velocity for consistent speed in all directions
@@ -561,23 +566,10 @@ function updatePlayer(deltaTime) {
         // Update camera position
         camera.position.copy(player.position);
         
-        // Update audio listener position
-        listener.positionX.value = player.position.x;
-        listener.positionY.value = player.position.y;
-        listener.positionZ.value = player.position.z;
-        
-        // Update listener orientation
-        const forward = new THREE.Vector3(0, 0, -1);
-        forward.applyQuaternion(camera.quaternion);
-        
-        listener.forwardX.value = forward.x;
-        listener.forwardY.value = forward.y;
-        listener.forwardZ.value = forward.z;
-    }
-    
-    // Check if player reached the goal
-    if (window.gameGoal && player.position.distanceTo(window.gameGoal.position) < 1.5) {
-        winGame();
+        // Update audio listener position using the appropriate method
+        if (listener) {
+            listener.setPosition(player.position.x, player.position.y, player.position.z);
+        }
     }
 }
 
