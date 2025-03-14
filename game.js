@@ -285,7 +285,7 @@ function addPointLight(x, y, z, color, intensity, distance) {
     scene.add(light);
 }
 
-// Create player (continued)
+// Create player with fixed audio positioning
 function createPlayer() {
     // Player is just a camera controller in this game
     player = {
@@ -295,21 +295,39 @@ function createPlayer() {
     };
     
     // Update audio listener position based on player
-    listener.positionX.value = player.position.x;
-    listener.positionY.value = player.position.y;
-    listener.positionZ.value = player.position.z;
+    // Check which API version we need to use
+    if (listener.positionX !== undefined) {
+        // Modern API
+        listener.positionX.value = player.position.x;
+        listener.positionY.value = player.position.y;
+        listener.positionZ.value = player.position.z;
+        
+        // Set listener orientation
+        const forward = new THREE.Vector3(0, 0, -1);
+        forward.applyQuaternion(camera.quaternion);
+        
+        listener.forwardX.value = forward.x;
+        listener.forwardY.value = forward.y;
+        listener.forwardZ.value = forward.z;
+        listener.upX.value = 0;
+        listener.upY.value = 1;
+        listener.upZ.value = 0;
+    } else {
+        // Legacy API
+        const listenerPosition = new Float32Array([player.position.x, player.position.y, player.position.z]);
+        const forward = new THREE.Vector3(0, 0, -1);
+        forward.applyQuaternion(camera.quaternion);
+        const up = new THREE.Vector3(0, 1, 0);
+        
+        // Forward and up vectors for orientation
+        const listenerOrientation = new Float32Array([forward.x, forward.y, forward.z, up.x, up.y, up.z]);
+        
+        // Set position and orientation using the old API
+        listener.setPosition(player.position.x, player.position.y, player.position.z);
+        listener.setOrientation(forward.x, forward.y, forward.z, up.x, up.y, up.z);
+    }
     
-    // Create forward vector for listener orientation
-    const forward = new THREE.Vector3(0, 0, -1);
-    forward.applyQuaternion(camera.quaternion);
-    
-    // Set listener orientation
-    listener.forwardX.value = forward.x;
-    listener.forwardY.value = forward.y;
-    listener.forwardZ.value = forward.z;
-    listener.upX.value = 0;
-    listener.upY.value = 1;
-    listener.upZ.value = 0;
+    console.log("Player created at position:", player.position);
 }
 
 // Create threat entity
