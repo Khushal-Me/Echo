@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Echo - A Sound-Based Horror Experience</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="start-screen" class="screen">
+            <h1>ECHO</h1>
+            <p>Listen carefully. Your life depends on it.</p>
+            <button id="start-button">Begin</button>
+            <p class="instructions">Use WASD to move. Headphones strongly recommended.</p>
+        </div>
+        
+        <div id="game-screen" class="screen hidden">
+            <canvas id="game-canvas"></canvas>
+            <div id="audio-indicator"></div>
+        </div>
+        
+        <div id="game-over-screen" class="screen hidden">
+            <h2>You were caught</h2>
+            <p>The darkness consumed you.</p>
+            <button id="restart-button">Try Again</button>
+        </div>
+    </div>
+
+    <!-- Import libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
