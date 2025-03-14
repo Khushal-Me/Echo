@@ -271,3 +271,363 @@ function addPointLight(x, y, z, color, intensity, distance) {
     light.castShadow = true;
     scene.add(light);
 }
+
+// Create player (continued)
+function createPlayer() {
+    // Player is just a camera controller in this game
+    player = {
+        position: camera.position,
+        rotation: camera.rotation,
+        height: 1.6
+    };
+    
+    // Update audio listener position based on player
+    listener.positionX.value = player.position.x;
+    listener.positionY.value = player.position.y;
+    listener.positionZ.value = player.position.z;
+    
+    // Create forward vector for listener orientation
+    const forward = new THREE.Vector3(0, 0, -1);
+    forward.applyQuaternion(camera.quaternion);
+    
+    // Set listener orientation
+    listener.forwardX.value = forward.x;
+    listener.forwardY.value = forward.y;
+    listener.forwardZ.value = forward.z;
+    listener.upX.value = 0;
+    listener.upY.value = 1;
+    listener.upZ.value = 0;
+}
+
+// Create threat entity
+function createThreat() {
+    // Create a simple mesh for the threat (invisible to player in actual gameplay)
+    const threatGeometry = new THREE.SphereGeometry(0.5, 8, 8);
+    const threatMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0xff0000,
+        transparent: true,
+        opacity: 0.0 // Invisible during gameplay
+    });
+    
+    threat = new THREE.Mesh(threatGeometry, threatMaterial);
+    threat.position.set(10, 1, 10); // Start far from player
+    scene.add(threat);
+    
+    // Create 3D audio for threat
+    if (threatSound && threatSound.buffer) {
+        threatSound.panner = playSound(threatSound, threat.position, true);
+    }
+    
+    // Set up threat behavior
+    threat.lastMoveTime = 0;
+    threat.targetPosition = new THREE.Vector3(10, 1, 10);
+    threat.moveInterval = 2000; // ms between position updates
+    threat.speed = 0.05; // Speed of threat movement
+    threat.awarenessOfPlayer = 0; // How aware the threat is of player (0-1)
+}
+
+// Create goal/escape point
+function createGoal() {
+    // Create a simple mesh for the goal (slightly visible glow)
+    const goalGeometry = new THREE.SphereGeometry(0.5, 16, 16);
+    const goalMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x00ffff,
+        transparent: true,
+        opacity: 0.2 // Barely visible
+    });
+    
+    const goal = new THREE.Mesh(goalGeometry, goalMaterial);
+    goal.position.set(-12, 1, -12); // Far corner of the map
+    scene.add(goal);
+    
+    // Create 3D audio for goal
+    if (goalSound && goalSound.buffer) {
+        goalSound.panner = playSound(goalSound, goal.position, true);
+    }
+    
+    // Store goal in game state
+    window.gameGoal = goal;
+}
+
+// Play random environmental sounds
+function playEnvironmentalSounds() {
+    if (environmentSounds.length === 0) return;
+    
+    // Randomly play environment sounds
+    if (Math.random() < 0.005) { // 0.5% chance per frame
+        const randomSound = environmentSounds[Math.floor(Math.random() * environmentSounds.length)];
+        
+        // Random position near player
+        const angle = Math.random() * Math.PI * 2;
+        const distance = Math.random() * 10 + 5;
+        const x = player.position.x + Math.cos(angle) * distance;
+        const z = player.position.z + Math.sin(angle) * distance;
+        
+        playSound(randomSound, new THREE.Vector3(x, 1, z));
+    }
+}
+
+// Update threat behavior
+function updateThreat(deltaTime) {
+    if (!threat) return;
+    
+    // Calculate distance to player
+    const distanceToPlayer = threat.position.distanceTo(player.position);
+    
+    // Update threat's awareness of player based on distance and player movement
+    const playerIsMoving = playerVelocity.length() > 0.01;
+    if (playerIsMoving && distanceToPlayer < 8) {
+        // Player movement makes noise, increasing threat awareness
+        threat.awarenessOfPlayer += deltaTime * (1 / distanceToPlayer) * 0.1;
+    } else {
+        // Threat gradually loses awareness over time
+        threat.awarenessOfPlayer -= deltaTime * 0.02;
+    }
+    
+    // Clamp awareness between 0 and 1
+    threat.awarenessOfPlayer = Math.max(0, Math.min(1, threat.awarenessOfPlayer));
+    
+    // Update threat movement
+    const now = Date.now();
+    if (now - threat.lastMoveTime > threat.moveInterval) {
+        threat.lastMoveTime = now;
+        
+        // Choose new target position based on awareness
+        if (threat.awarenessOfPlayer > 0.7) {
+            // Highly aware - move directly towards player
+            threat.targetPosition.copy(player.position);
+        } else if (threat.awarenessOfPlayer > 0.3) {
+            // Somewhat aware - move in player's general direction
+            const angleToPlayer = Math.atan2(
+                player.position.z - threat.position.z,
+                player.position.x - threat.position.x
+            );
+            
+            // Add some randomness to the angle
+            const randomAngle = angleToPlayer + (Math.random() - 0.5) * Math.PI * 0.5;
+            const distance = Math.random() * 5 + 5;
+            
+            threat.targetPosition.x = threat.position.x + Math.cos(randomAngle) * distance;
+            threat.targetPosition.z = threat.position.z + Math.sin(randomAngle) * distance;
+        } else {
+            // Unaware - wander randomly
+            const randomAngle = Math.random() * Math.PI * 2;
+            const distance = Math.random() * 5 + 2;
+            
+            threat.targetPosition.x = threat.position.x + Math.cos(randomAngle) * distance;
+            threat.targetPosition.z = threat.position.z + Math.sin(randomAngle) * distance;
+        }
+        
+        // Keep y position constant
+        threat.targetPosition.y = 1;
+    }
+    
+    // Move towards target position
+    const moveDirection = new THREE.Vector3();
+    moveDirection.subVectors(threat.targetPosition, threat.position).normalize();
+    
+    threat.position.x += moveDirection.x * threat.speed * deltaTime * 60;
+    threat.position.z += moveDirection.z * threat.speed * deltaTime * 60;
+    
+    // Update threat sound position
+    if (threatSound && threatSound.panner) {
+        threatSound.panner.positionX.value = threat.position.x;
+        threatSound.panner.positionY.value = threat.position.y;
+        threatSound.panner.positionZ.value = threat.position.z;
+    }
+    
+    // Check if threat caught player
+    if (distanceToPlayer < threatDetectionRadius) {
+        gameOver();
+    }
+}
+
+// Check for collision with walls
+function checkCollision(position) {
+    raycaster.near = 0;
+    raycaster.far = 1;
+    
+    // Check in 4 directions (forward, backward, left, right)
+    const directions = [
+        new THREE.Vector3(1, 0, 0),
+        new THREE.Vector3(-1, 0, 0),
+        new THREE.Vector3(0, 0, 1),
+        new THREE.Vector3(0, 0, -1)
+    ];
+    
+    for (const direction of directions) {
+        raycaster.set(position, direction);
+        const intersects = raycaster.intersectObjects(scene.children, true);
+        
+        // Check if there's a collision
+        for (const intersect of intersects) {
+            if (intersect.object.userData.isCollidable && intersect.distance < 0.5) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
+}
+
+// Update player movement
+function updatePlayer(deltaTime) {
+    // Reset velocity
+    playerVelocity.set(0, 0, 0);
+    
+    // Get movement direction from keys
+    if (keyStates['KeyW'] || keyStates['ArrowUp']) {
+        playerVelocity.z = -1;
+    }
+    if (keyStates['KeyS'] || keyStates['ArrowDown']) {
+        playerVelocity.z = 1;
+    }
+    if (keyStates['KeyA'] || keyStates['ArrowLeft']) {
+        playerVelocity.x = -1;
+    }
+    if (keyStates['KeyD'] || keyStates['ArrowRight']) {
+        playerVelocity.x = 1;
+    }
+    
+    // Normalize velocity for consistent speed in all directions
+    if (playerVelocity.lengthSq() > 0) {
+        playerVelocity.normalize();
+    }
+    
+    // Apply playerSpeed
+    playerVelocity.multiplyScalar(playerSpeed * deltaTime * 60);
+    
+    // Get current velocity in camera direction
+    const cameraDirection = new THREE.Vector3();
+    camera.getWorldDirection(cameraDirection);
+    cameraDirection.y = 0;
+    cameraDirection.normalize();
+    
+    // Get right vector from camera
+    const right = new THREE.Vector3(-cameraDirection.z, 0, cameraDirection.x);
+    
+    // Combine direction and right vectors based on input
+    const moveX = playerVelocity.x * right.x + playerVelocity.z * cameraDirection.x;
+    const moveZ = playerVelocity.x * right.z + playerVelocity.z * cameraDirection.z;
+    
+    // Calculate new position
+    const newPosition = new THREE.Vector3(
+        player.position.x + moveX,
+        player.position.y,
+        player.position.z + moveZ
+    );
+    
+    // Check for collision
+    if (!checkCollision(newPosition)) {
+        player.position.copy(newPosition);
+        
+        // Update camera position
+        camera.position.copy(player.position);
+        
+        // Update audio listener position
+        listener.positionX.value = player.position.x;
+        listener.positionY.value = player.position.y;
+        listener.positionZ.value = player.position.z;
+        
+        // Update listener orientation
+        const forward = new THREE.Vector3(0, 0, -1);
+        forward.applyQuaternion(camera.quaternion);
+        
+        listener.forwardX.value = forward.x;
+        listener.forwardY.value = forward.y;
+        listener.forwardZ.value = forward.z;
+    }
+    
+    // Check if player reached the goal
+    if (window.gameGoal && player.position.distanceTo(window.gameGoal.position) < 1.5) {
+        winGame();
+    }
+}
+
+// Win game
+function winGame() {
+    isGameActive = false;
+    
+    document.getElementById('game-over-screen').classList.remove('hidden');
+    document.getElementById('game-screen').classList.add('hidden');
+    
+    // Update game over text for win
+    document.querySelector('#game-over-screen h2').textContent = "You escaped!";
+    document.querySelector('#game-over-screen p').textContent = "You found your way out of the darkness.";
+}
+
+// Game over
+function gameOver() {
+    isGameActive = false;
+    
+    // Play jump scare sound
+    const jumpScareSound = {
+        buffer: threatSound.buffer
+    };
+    playSound(jumpScareSound, player.position);
+    
+    document.getElementById('game-over-screen').classList.remove('hidden');
+    document.getElementById('game-screen').classList.add('hidden');
+}
+
+// Restart game
+function restartGame() {
+    // Reset the scene
+    while(scene.children.length > 0){ 
+        scene.remove(scene.children[0]); 
+    }
+    
+    // Reinitialize game
+    initThreeJS();
+    createEnvironment();
+    createPlayer();
+    createThreat();
+    createGoal();
+    
+    document.getElementById('game-over-screen').classList.add('hidden');
+    document.getElementById('game-screen').classList.remove('hidden');
+    
+    isGameActive = true;
+    animate();
+}
+
+// Animation loop
+function animate() {
+    if (!isGameActive) return;
+    
+    requestAnimationFrame(animate);
+    
+    const deltaTime = Math.min(0.1, clock.getDelta()); // Cap delta time
+    
+    updatePlayer(deltaTime);
+    updateThreat(deltaTime);
+    playEnvironmentalSounds();
+    
+    renderer.render(scene, camera);
+    
+    // Update audio indicator based on threat proximity
+    updateAudioIndicator();
+}
+
+// Update audio indicator for visual feedback
+function updateAudioIndicator() {
+    const indicator = document.getElementById('audio-indicator');
+    if (!indicator || !threat) return;
+    
+    const distance = player.position.distanceTo(threat.position);
+    const maxDistance = 15; // Maximum distance for indicator
+    
+    if (distance < maxDistance) {
+        const intensity = 1 - (distance / maxDistance);
+        indicator.style.backgroundColor = `rgba(255, 0, 0, ${intensity * 0.7})`;
+        indicator.style.boxShadow = `0 0 ${intensity * 30}px ${intensity * 10}px rgba(255, 0, 0, ${intensity * 0.5})`;
+        indicator.style.transform = `translateX(-50%) scale(${1 + intensity})`;
+    } else {
+        indicator.style.backgroundColor = 'transparent';
+        indicator.style.boxShadow = 'none';
+        indicator.style.transform = 'translateX(-50%) scale(1)';
+    }
+}
+
+// Initialize game on page load
+window.addEventListener('load', init);
