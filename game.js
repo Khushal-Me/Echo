@@ -13,6 +13,43 @@ let raycaster = new THREE.Raycaster();
 let threatDetectionRadius = 3;
 let gameLevel;
 
+// Add this at the beginning of your script
+let debugMode = true;
+
+// Add these debug features
+function setupDebugMode() {
+    if (!debugMode) return;
+    
+    // Add a visible floor grid
+    const gridHelper = new THREE.GridHelper(20, 20, 0x555555, 0x333333);
+    scene.add(gridHelper);
+    
+    // Add a visible player marker
+    const playerMarker = new THREE.Mesh(
+        new THREE.SphereGeometry(0.2, 8, 8),
+        new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+    );
+    playerMarker.position.y = 0.2;
+    scene.add(playerMarker);
+    window.playerMarker = playerMarker;
+    
+    // Add a visible threat marker
+    const threatMarker = new THREE.Mesh(
+        new THREE.SphereGeometry(0.3, 8, 8),
+        new THREE.MeshBasicMaterial({ color: 0xff0000 })
+    );
+    threatMarker.position.y = 0.3;
+    scene.add(threatMarker);
+    window.threatMarker = threatMarker;
+    
+    // Extra light
+    const debugLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    debugLight.position.set(5, 10, 5);
+    scene.add(debugLight);
+    
+    console.log("Debug mode enabled");
+}
+
 // Initialize the game
 function init() {
     setupEventListeners();
@@ -40,10 +77,12 @@ function setupScreens() {
     document.getElementById('start-screen').classList.remove('hidden');
 }
 
-// Start the game
+// Modify startGame to include these debug helpers
 function startGame() {
     document.getElementById('start-screen').classList.add('hidden');
     document.getElementById('game-screen').classList.remove('hidden');
+    
+    console.log("Starting game...");
     
     initAudio();
     initThreeJS();
@@ -51,6 +90,10 @@ function startGame() {
     createPlayer();
     createThreat();
     createGoal();
+    
+    // Add debug helpers
+    setupDebugMode();
+    createTestCube();
     
     isGameActive = true;
     animate();
@@ -618,7 +661,7 @@ function restartGame() {
     animate();
 }
 
-// Animation loop
+// Modifying animate function
 function animate() {
     if (!isGameActive) return;
     
@@ -628,12 +671,48 @@ function animate() {
     
     updatePlayer(deltaTime);
     updateThreat(deltaTime);
+    updateDebugMarkers(); // Added this line
     playEnvironmentalSounds();
     
     renderer.render(scene, camera);
     
     // Update audio indicator based on threat proximity
     updateAudioIndicator();
+}
+
+// Add this to your animate function
+function updateDebugMarkers() {
+    if (!debugMode) return;
+    
+    if (window.playerMarker) {
+        window.playerMarker.position.x = player.position.x;
+        window.playerMarker.position.z = player.position.z;
+    }
+    
+    if (window.threatMarker && threat) {
+        window.threatMarker.position.x = threat.position.x;
+        window.threatMarker.position.z = threat.position.z;
+    }
+}
+
+// Add a createTestCube function for visibility
+function createTestCube() {
+    const cube = new THREE.Mesh(
+        new THREE.BoxGeometry(1, 1, 1),
+        new THREE.MeshBasicMaterial({ color: 0xff0000 })
+    );
+    cube.position.set(0, 1, -5); // Position in front of the player
+    scene.add(cube);
+    console.log("Test cube added");
+    
+    // Add a visible floor that's easier to see
+    const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(20, 20),
+        new THREE.MeshBasicMaterial({ color: 0x222222, side: THREE.DoubleSide })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -0.01; // Slightly below player
+    scene.add(floor);
 }
 
 // Update audio indicator for visual feedback
