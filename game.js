@@ -671,6 +671,19 @@ function winGame() {
     document.querySelector('#game-over-screen p').textContent = "You found your way out of the darkness.";
 }
 
+function checkWinCondition() {
+    if (!isGameActive || !window.gameGoal) return;
+    
+    // Calculate distance between player and goal
+    const distanceToGoal = player.position.distanceTo(window.gameGoal.position);
+    
+    // If player is close enough to the goal
+    if (distanceToGoal < 1.5) {
+        console.log("Goal reached! Distance:", distanceToGoal);
+        winGame();
+    }
+}
+
 // Game over
 function gameOver() {
     isGameActive = false;
@@ -716,8 +729,11 @@ function animate() {
     
     updatePlayer(deltaTime);
     updateThreat(deltaTime);
-    updateDebugMarkers(); // Added this line
+    updateDebugMarkers();
     playEnvironmentalSounds();
+    
+    // Add win condition check
+    checkWinCondition();
     
     renderer.render(scene, camera);
     
