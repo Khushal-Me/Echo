@@ -404,7 +404,7 @@ function playEnvironmentalSounds() {
     }
 }
 
-// Update threat behavior
+// Update threat with fixed audio positioning
 function updateThreat(deltaTime) {
     if (!threat) return;
     
@@ -468,9 +468,7 @@ function updateThreat(deltaTime) {
     
     // Update threat sound position
     if (threatSound && threatSound.panner) {
-        threatSound.panner.positionX.value = threat.position.x;
-        threatSound.panner.positionY.value = threat.position.y;
-        threatSound.panner.positionZ.value = threat.position.z;
+        threatSound.panner.setPosition(threat.position.x, threat.position.y, threat.position.z);
     }
     
     // Check if threat caught player
