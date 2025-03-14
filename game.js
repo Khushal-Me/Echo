@@ -139,39 +139,45 @@ function loadAudioFiles() {
     });
 }
 
-// Play a sound at a specific position in 3D space
+// Play a sound at a specific position in 3D space (fixed version)
 function playSound(sound, position, loop = false) {
-    if (!sound || !sound.buffer) return;
+    if (!sound || !sound.buffer) {
+        console.warn("Attempted to play sound that isn't loaded yet");
+        return;
+    }
     
     // If this sound is already playing, stop it
     if (sound.source) {
         sound.source.stop();
     }
     
-    // Create new audio source
-    sound.source = audioContext.createBufferSource();
-    sound.source.buffer = sound.buffer;
-    sound.source.loop = loop;
-    
-    // Create panner for 3D positioning
-    const panner = audioContext.createPanner();
-    panner.panningModel = 'HRTF';
-    panner.distanceModel = 'exponential';
-    panner.refDistance = 1;
-    panner.maxDistance = 100;
-    panner.rolloffFactor = 1;
-    
-    // Set position
-    panner.positionX.value = position.x;
-    panner.positionY.value = position.y;
-    panner.positionZ.value = position.z;
-    
-    // Connect nodes and start playing
-    sound.source.connect(panner);
-    panner.connect(audioContext.destination);
-    sound.source.start(0);
-    
-    return panner;
+    try {
+        // Create new audio source
+        sound.source = audioContext.createBufferSource();
+        sound.source.buffer = sound.buffer;
+        sound.source.loop = loop;
+        
+        // Create panner for 3D positioning
+        const panner = audioContext.createPanner();
+        panner.panningModel = 'HRTF';
+        panner.distanceModel = 'exponential';
+        panner.refDistance = 1;
+        panner.maxDistance = 100;
+        panner.rolloffFactor = 1;
+        
+        // Set position using the appropriate method
+        panner.setPosition(position.x, position.y, position.z);
+        
+        // Connect nodes and start playing
+        sound.source.connect(panner);
+        panner.connect(audioContext.destination);
+        sound.source.start(0);
+        
+        return panner;
+    } catch (error) {
+        console.error("Error playing sound:", error);
+        return null;
+    }
 }
 
 // Initialize Three.js
