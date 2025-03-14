@@ -1,6 +1,6 @@
 # Echo - A Sound-Based Horror Experience
 
-![Echo](https://raw.githubusercontent.com/Khushal-Me/echo-game/main/extra/screenshot.png)
+![Echo](https://raw.githubusercontent.com/Khushal-Me/echo-game/main/extra/Screenshot.png)
 
 ## Overview
 
